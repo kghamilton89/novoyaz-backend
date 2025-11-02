@@ -3,6 +3,10 @@ from typing import List, Dict, Any
 
 app = FastAPI(title="NOVOYAZ Backend (stub)")
 
+@app.get("/ping")
+def ping():
+    return {"ok": True, "service": "novoyaz-stub"}
+
 @app.get("/healthz")
 def healthz():
     return {"ok": True, "service": "novoyaz-stub"}
