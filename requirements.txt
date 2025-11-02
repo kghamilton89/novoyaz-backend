@@ -4,3 +4,4 @@ python-multipart
 pillow
 paddlepaddle
 paddleocr
+numpy
