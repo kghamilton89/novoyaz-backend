@@ -4,9 +4,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
-# System libs for Pillow/PaddleOCR (OpenCV): libgl + glib
+# System libs for PaddleOCR / OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libglib2.0-0 && \
+    libgl1 libglib2.0-0 libgomp1 libstdc++6 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
