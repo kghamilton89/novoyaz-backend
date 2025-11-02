@@ -3,10 +3,10 @@ name: Build & Push (versioned, amd64)
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: {}  # allow manual runs
+  workflow_dispatch: {}
 
 permissions:
-  contents: write  # needed to create & push git tags
+  contents: write  # required to push git tags
 
 env:
   IMAGE_NAME: kghamilton89/novoyaz-stub
@@ -21,11 +21,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure git user for tagging
+        run: |
+          git config user.name  "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
       - name: Determine next version (0.1, 0.2, …)
         id: ver
         shell: bash
         run: |
-          # Find highest vX.Y tag; default to 0.0 if none
           LAST="$(git tag -l 'v[0-9]*.[0-9]*' | sed 's/^v//' | sort -V | tail -n1)"
           if [ -z "$LAST" ]; then LAST="0.0"; fi
           MAJ="${LAST%%.*}"
@@ -36,9 +40,15 @@ jobs:
           echo "next=$NEXT" >> "$GITHUB_OUTPUT"
 
       - name: Create & push git tag v${{ steps.ver.outputs.next }}
+        shell: bash
         run: |
-          git tag -a "v${{ steps.ver.outputs.next }}" -m "Release ${{ steps.ver.outputs.next }}"
-          git push origin "v${{ steps.ver.outputs.next }}"
+          TAG="v${{ steps.ver.outputs.next }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists; skipping create."
+          else
+            git tag -a "$TAG" -m "Release ${{ steps.ver.outputs.next }}"
+            git push origin "$TAG"
+          fi
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
