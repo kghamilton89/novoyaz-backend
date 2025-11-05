@@ -1,28 +1,20 @@
-# Dockerfile for NOVOYAZ OCR Service (FastAPI + PaddleOCR)
-
 FROM python:3.11-slim
 
-# Install system dependencies for OpenCV and PaddleOCR
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
 
-# Set working directory
+# System libs for PaddleOCR / OpenCV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 libgomp1 libstdc++6 && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy requirements first (for better caching)
-COPY requirements.txt .
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+COPY . /app
 
-# Copy application code
-COPY app.py .
-
-# Expose port
 EXPOSE 8000
-
-# Run with uvicorn
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "python -m uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}"]
