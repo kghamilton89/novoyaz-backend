@@ -208,4 +208,8 @@ __marimo__/
 
 # local
 example.png
+example-01.jpg
 /tests
+.env
+/novoyaz-worker
+.DS_Store

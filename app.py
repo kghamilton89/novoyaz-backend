@@ -16,7 +16,16 @@ def get_ocr():
         with _ocr_lock:
             if _ocr is None:
                 from paddleocr import PaddleOCR  # import lazily to keep startup fast
-                _ocr = PaddleOCR(lang="ru", use_angle_cls=True)  # angle cls enabled via ctor
+                _ocr = PaddleOCR(
+                    lang="ru", 
+                    use_angle_cls=True,
+                    use_gpu=True,  # Enable GPU if available
+                    show_log=False,  # Reduce logging noise
+                    # Quality settings for old text
+                    det_db_thresh=0.3,  # Lower threshold for better detection
+                    det_db_box_thresh=0.5
+                )
+                print("PaddleOCR initialized successfully")
     return _ocr
 
 @app.get("/ping")
@@ -56,14 +65,17 @@ def _normalize_paddle_result(result: Any) -> Dict[str, Any]:
                 second = item[1]
                 if isinstance(second, (list, tuple)) and len(second) >= 2:
                     # [points, (text, score)]
-                    txt = second[0]
-                    conf = float(second[1])
+                    txt = str(second[0])  # Ensure string
+                    try:
+                        conf = float(second[1])
+                    except (ValueError, TypeError):
+                        conf = 0.0
                 elif len(item) >= 3:
                     # [points, text, score]
-                    txt = second
+                    txt = str(second)  # Ensure string
                     try:
                         conf = float(item[2])
-                    except Exception:
+                    except (ValueError, TypeError):
                         conf = 0.0
                 else:
                     # [points, text] (rare)
@@ -73,8 +85,11 @@ def _normalize_paddle_result(result: Any) -> Dict[str, Any]:
             if bbox is None:
                 continue
 
-            lines.append({"text": txt, "confidence": conf, "bbox": bbox})
-            texts.append(txt)
+            # Only add non-empty text
+            txt = txt.strip()
+            if txt:
+                lines.append({"text": txt, "confidence": conf, "bbox": bbox})
+                texts.append(txt)
 
     return {"lines": lines, "text": "\n".join(texts)}
 
@@ -88,19 +103,29 @@ def ocr_image(img: Image.Image) -> Dict[str, Any]:
 async def ocr_endpoint(files: List[UploadFile] = File(...)) -> Dict[str, Any]:
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded.")
+    
     outputs = []
     for f in files:
         raw = await f.read()
         try:
             img = pil_from_upload(raw)
-        except Exception:
-            raise HTTPException(status_code=415, detail=f"Unsupported file type for {f.filename}. Use JPG/PNG for now.")
-        out = ocr_image(img)
+        except Exception as e:
+            raise HTTPException(
+                status_code=415, 
+                detail=f"Unsupported file type for {f.filename}. Use JPG/PNG. Error: {str(e)}"
+            )
+        
+        # Run OCR
+        ocr_result = ocr_image(img)
+        
+        # Extract the combined text
+        extracted_text = ocr_result.get("text", "")
+        
         outputs.append({
-            "input": f.filename,
+            "input": f.filename or "unknown",
             "kind": "image",
-            "pre_reform_text": out["text"],
-            "modern_text": "",
-            "lines": out["lines"]
+            "text": extracted_text,  # The OCR'd text
+            "lines": ocr_result.get("lines", [])  # Individual lines with bboxes
         })
+    
     return {"results": outputs, "lang": "ru"}
