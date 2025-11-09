@@ -212,4 +212,5 @@ example-01.jpg
 /tests
 .env
 /novoyaz-worker
+/novoyaz-worker-v2
 .DS_Store
