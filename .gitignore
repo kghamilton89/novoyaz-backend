@@ -213,4 +213,5 @@ example-01.jpg
 .env
 /novoyaz-worker
 /novoyaz-worker-v2
+/artifact-worker
 .DS_Store
